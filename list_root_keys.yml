@@ -1,0 +1,11 @@
+---
+- name: List Root keys on Machine
+  hosts: all
+
+  tasks:
+    - name: Get Root Keys
+      command: /bin/cat /root/.ssh/authorized_keys
+      register: root_keys
+    - name: List Root Keys
+      debug:
+        msg: "{{ root_keys.stdout_lines }}"

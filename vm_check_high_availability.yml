@@ -1,0 +1,31 @@
+---
+- name: oVirt Check High Availability
+  hosts: localhost
+  gather_facts: False
+
+  pre_tasks:
+  - name: Login to oVirt
+    ovirt_auth:
+      url: "{{ ovirt_url }}"
+      username: "{{ ovirt_login }}"
+      password: "{{ ovirt_password }}"
+      insecure: yes
+    tags:
+      - always
+
+  tasks:
+    - name: Gather information about all VMs
+      ovirt.ovirt.ovirt_vm_info:
+        auth: "{{ ovirt_auth }}"
+      register: vms
+
+    # - name: Display VM Information
+    #   debug:
+    #     var: vms
+
+    - name: Display Name and High Availability Options
+      debug:
+        msg: "VM Name: {{ item.name }} | High Availability: {{ item.high_availability }}"
+      loop: "{{ vms.ovirt_vms }}"
+      loop_control:
+        label: "{{ item.name }}"

@@ -1,0 +1,28 @@
+---
+- name: Create VM on RHV
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - block:
+        - name: Obtain SSO token with using username/password credentials
+          ovirt.ovirt.ovirt_auth:
+            url: "{{ ovirt_url }}"
+            username: "{{ ovirt_login }}"
+            password: "{{ ovirt_password }}"
+    
+        - name: Start VM
+          ovirt.ovirt.ovirt_vm:
+            auth: "{{ ovirt_auth }}"
+            name: "{{ OVIRT_VM_NAME }}"
+            cluster: "Default"
+            state: running  
+       
+        - name: Logout from oVirt
+          ovirt.ovirt.ovirt_auth:
+            state: absent
+            ovirt_auth: "{{ ovirt_auth }}"
+        - name: Pause
+          pause:
+            minutes: "{{ PAUSE_TIME }}"

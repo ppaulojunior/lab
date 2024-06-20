@@ -1,0 +1,133 @@
+---
+- name: Create VM on RHV
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Login to oVirt
+      ovirt_auth:
+        url: "{{ ovirt_url }}"
+        username: "{{ ovirt_login }}"
+        password: "{{ ovirt_password }}"
+        insecure: yes
+      tags:
+        - always
+
+  tasks:
+    - name: Create and run VM from template
+      ovirt_vm:
+        auth: "{{ ovirt_auth }}"
+        name: "{{ OVIRT_VM_NAME }}"
+        template: "{{ OVIRT_TEMPLATE }}"
+        cluster: "{{ OVIRT_CLUSTER }}"
+        memory: "{{ OVIRT_VM_MEMORY }}"
+        state: present
+        wait: yes
+        storage_domain: "{{ OVIRT_DOMAIN }}"
+        disk_format: "{{ OVIRT_DISKFORMAT }}"
+        clone: yes
+        timeout: "{{ OVIRT_TIMEOUT }}"   
+        cpu_cores: "{{ OVIRT_CPUCORE }}" 
+        cpu_sockets: "{{ OVIRT_CPUSOCKET }}"     
+        cloud_init:
+          # nic_boot_protocol: dhcp        
+          nic_boot_protocol: static
+          nic_ip_address: "{{ OVIRT_NIC_IP_ADDRESS }}"
+          nic_netmask: "{{ OVIRT_NIC_NETMASK }}"
+          nic_gateway: "{{ OVIRT_GATEWAY }}"
+          dns_servers: "{{ OVIRT_DNS }}"    
+          dns_search: "{{ OVIRT_DNS_DOMAIN }}"
+          # C7: eth0 C8: ens3
+          nic_name: "{{ OVIRT_NIC_NAME }}"
+          #nic_on_boot not working on dsbr-ovirt-pre
+          #nic_on_boot: true
+          host_name: "{{ OVIRT_HOSTNAME }}"  
+#        disks:
+#          - size: 20GiB
+#            name_prefix: true
+#            name: centos_root
+#            interface: virtio
+#            storage_domain: iSCSI-DATA
+
+    - name: apply network
+      ovirt_nic:
+        auth: "{{ ovirt_auth }}"       
+        state: plugged
+        interface: virtio
+        name: nic1
+        network: "{{ OVIRT_NETWORK }}"
+        profile: "{{ OVIRT_PROFILE }}"
+        vm: "{{ OVIRT_VM_NAME }}"
+        wait: yes
+        
+    - name: get disk uuid
+      ovirt_vm_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "name={{ OVIRT_VM_NAME }}"
+        next_run: true
+        all_content: true
+        fetch_nested: true
+        # follow: ['original_template.disks'] 
+      register: disk_vm
+ 
+    - name: Disk UUID only bebug
+      debug:   
+        msg: "{{ disk_vm.ovirt_vms[0].disk_attachments[0].id }}" 
+             
+    # - name: rename_disk
+    #   ovirt_disk:
+    #     auth: "{{ ovirt_auth }}"
+    #     id: "{{ disk_vm.ovirt_vms[0].disk_attachments[0].id }}"
+    #     #vm_name: "{{ OVIRT_VM_NAME }}"
+    #     #size: "{{ OVIRT_SIZEDISK }}"
+    #     name: "{{ OVIRT_VM_NAME }}_root"
+    #     # storage_domain: "{{ OVIRT_DOMAIN }}"
+
+    # - name: resize_disk
+    #   ovirt_disk:
+    #     auth: "{{ ovirt_auth }}"
+    #     # storage_domain: "{{ OVIRT_DOMAIN }}"
+    #     name: "{{ OVIRT_VM_NAME }}_root"
+    #     # id: "{{ disk_vm.ovirt_vms[0].disk_attachments[0].id }}"
+    #     vm_name: "{{ OVIRT_VM_NAME }}"
+    #     size: "{{ OVIRT_SIZEDISK }}"
+            
+    - name: Run VM
+      ovirt_vm:
+        auth: "{{ ovirt_auth }}"
+        name: "{{ OVIRT_VM_NAME }}"
+        cluster: "{{ OVIRT_CLUSTER }}"
+        state: running
+        wait: yes
+        cloud_init:
+          # nic_boot_protocol: dhcp        
+          nic_boot_protocol: static
+          nic_ip_address: "{{ OVIRT_NIC_IP_ADDRESS }}"
+          nic_netmask: "{{ OVIRT_NIC_NETMASK }}"
+          nic_gateway: "{{ OVIRT_GATEWAY }}"
+          dns_servers: "{{ OVIRT_DNS }}"                 
+          nic_name: "{{ OVIRT_NIC_NAME }}"
+          #nic_on_boot not working on dsbr-ovirt-pre
+          #nic_on_boot: true
+          host_name: "{{ OVIRT_VM_NAME }}"          
+    
+    - name: Reboot VM
+      ovirt_vm:
+        auth: "{{ ovirt_auth }}"
+        name: "{{ OVIRT_VM_NAME }}"
+        cluster: "{{ OVIRT_CLUSTER }}"
+        state: next_run     
+
+    - name: Pause
+      pause:
+        minutes: "{{ PAUSE_TIME }}"        
+
+  post_tasks:
+    - name: Logout from oVirt
+      ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      tags:
+        - always
+        

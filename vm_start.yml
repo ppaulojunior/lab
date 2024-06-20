@@ -1,0 +1,35 @@
+---
+- name: Create VM on RHV
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Login to oVirt
+      ovirt_auth:
+        url: "{{ ovirt_url }}"
+        username: "{{ ovirt_login }}"
+        password: "{{ ovirt_password }}"
+        insecure: yes
+      tags:
+        - always
+
+  tasks: 
+    - name: Start VM
+      ovirt_vm:
+        auth: "{{ ovirt_auth }}"
+        name: "{{ OVIRT_VM_NAME }}"
+        cluster: "{{ OVIRT_CLUSTER }}"
+        state: running  
+   
+  post_tasks:
+    - name: Logout from oVirt
+      ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      tags:
+        - always
+    - name: Pause
+      pause:
+        minutes: "{{ PAUSE_TIME }}"
+        
